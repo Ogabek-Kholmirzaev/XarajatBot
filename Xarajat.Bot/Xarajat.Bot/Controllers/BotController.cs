@@ -8,19 +8,22 @@ using User = Xarajat.Data.Entities.User;
 
 namespace Xarajat.Bot.Controllers;
 
-[ApiController]
 [Route("bot")]
+[ApiController]
 public class BotController : ControllerBase
 {
     private readonly UserRepository _userRepository;
     private readonly TelegramBotService _botService;
     private readonly RoomRepository _roomRepository;
+    private readonly OutlayRepository _outlayRepository;
 
-    public BotController(UserRepository userRepository, TelegramBotService botService, RoomRepository roomRepository)
+    public BotController(UserRepository userRepository, TelegramBotService botService, RoomRepository roomRepository,
+        OutlayRepository outlayRepository)
     {
         _userRepository = userRepository;
         _botService = botService;
         _roomRepository = roomRepository;
+        _outlayRepository = outlayRepository;
     }
 
     [HttpGet]
@@ -35,7 +38,21 @@ public class BotController : ControllerBase
         var (chatId, message, username) = GetValues(update);
         var user = await FilterUser(chatId, username);
 
+        if (message == "start")
+        {
+            _botService.SendMessage(user.ChatId, "Menu", reply: _botService.GetKeyboard(ShowMenu(user)));
+            return;
+        }
+
         if (user.Step == 0)
+        {
+            user.Step = 100;
+
+            await _userRepository.UpdateUser(user);
+
+            _botService.SendMessage(user.ChatId, "Menu", reply: _botService.GetKeyboard(ShowMenu(user)));
+        }
+        else if (user.Step == 100)
         {
             if (message == "Create room")
             {
@@ -51,13 +68,31 @@ public class BotController : ControllerBase
 
                 await _userRepository.UpdateUser(user);
 
-                _botService.SendMessage(user.ChatId, "Enter room key?");
+                _botService.SendMessage(user.ChatId, "Enter key to join room!");
             }
-            else
+            else if (message == "Add outlay")
             {
-                var menu = new List<string> { "Create room", "Join room" };
+                user.Step = 4;
 
-                _botService.SendMessage(user.ChatId, "Menu", reply: _botService.GetKeyboard(menu));
+                await _userRepository.UpdateUser(user);
+
+                _botService.SendMessage(user.ChatId, "Enter outlay details!\nProductName Price\nBanana 20000");
+            }
+            else if (message == "Calculate room outlays")
+            {
+                user.Step = 5;
+
+                await _userRepository.UpdateUser(user);
+
+                _botService.SendMessage(user.ChatId, "Room outlays.");
+
+                user.Step = 100;
+
+                await _userRepository.UpdateUser(user);
+
+                _botService.SendMessage(chatId, $"{await _outlayRepository.OutlaysByRoomId(user.RoomId!.Value)}");
+
+                _botService.SendMessage(user.ChatId, "Menu", reply: _botService.GetKeyboard(ShowMenu(user)));
             }
         }
         else if (user.Step == 1)
@@ -73,39 +108,77 @@ public class BotController : ControllerBase
 
             user.RoomId = room.Id;
             user.IsAdmin = true;
-            user.Step = 3;
+            user.Step = 100;
 
             await _userRepository.UpdateUser(user);
 
-            var menu = new List<string> { "Add outlay", "Calculate" };
+            _botService.SendMessage(user.ChatId, "Opened new room");
 
-            _botService.SendMessage(user.ChatId, "Menu", reply: _botService.GetKeyboard(menu));
+            _botService.SendMessage(user.ChatId, "Menu", reply: _botService.GetKeyboard(ShowMenu(user)));
         }
-        else if (user.Step == 3)
+        else if (user.Step == 2)
         {
-            if (message == "Add outlay")
-            {
-                user.Step = 1;
+            var room = await _roomRepository.GetRoomByKey(message);
 
+            if (room == null)
+                _botService.SendMessage(user.ChatId, "Room key is false.");
+            else
+                _botService.SendMessage(user.ChatId, $"Successfully added to {room.Name}.");
+
+            user.Step = 100;
+
+            await _userRepository.UpdateUser(user);
+
+            _botService.SendMessage(user.ChatId, "Menu", reply: _botService.GetKeyboard(ShowMenu(user)));
+        }
+        else if (user.Step == 4)
+        {
+            var product = message.Split(' ').ToList();
+
+            bool success = int.TryParse(product[1], out int productPrice);
+            var productName = product[0];
+
+            if (!success)
+            {
                 await _userRepository.UpdateUser(user);
 
-                _botService.SendMessage(user.ChatId, "Enter outlay details?");
-            }
-            else if (message == "Calculate")
-            {
-                user.Step = 2;
-
-                await _userRepository.UpdateUser(user);
-
-                _botService.SendMessage(user.ChatId, "room statistics?");
+                _botService.SendMessage(chatId, "Product input error!");
             }
             else
             {
-                var menu = new List<string> { "Add outlay", "Calculate" };
+                var outlay = new Outlay()
+                {
+                    Cost = productPrice,
+                    Description = productName,
+                    RoomId = user.RoomId!.Value,
+                    UserId = user.Id
+                };
 
-                _botService.SendMessage(user.ChatId, "Menu", reply: _botService.GetKeyboard(menu));
+                await _outlayRepository.AddOutlay(outlay);
+
+                _botService.SendMessage(chatId, "Successfully added!");
             }
+
+            user.Step = 100;
+
+            await _userRepository.UpdateUser(user);
+
+            _botService.SendMessage(user.ChatId, "Menu", reply: _botService.GetKeyboard(ShowMenu(user)));
+        }   
+    }
+
+    private List<string> ShowMenu(User user)
+    {
+        var menu = new List<string> { "Create room", "Join room" };
+
+        if (user.RoomId != null)
+        {
+            menu.Add("Add outlay");
+            menu.Add("Calculate room outlays");
+            menu.Add("Current room");
         }
+
+        return menu;
     }
 
     private Tuple<long, string, string> GetValues(Update update)
@@ -114,7 +187,7 @@ public class BotController : ControllerBase
         var message = update.Message!.Text!;
         var name = update.Message.From.Username ?? update.Message.From.FirstName;
 
-        return new(chatId, message, name);
+        return new Tuple<long, string, string>(chatId, message, name);
     }
 
     public async Task<User> FilterUser(long chatId, string username)
@@ -130,6 +203,7 @@ public class BotController : ControllerBase
 
             await _userRepository.AddUserAsync(user);
         }
+
         return user;
     }
 }

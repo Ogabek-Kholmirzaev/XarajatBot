@@ -15,13 +15,18 @@ public class RoomRepository
 
     public async Task<Room?> GetRoomById(int id)
     {
-        return await _context.Rooms.FindAsync(id);
+        return await _context.Rooms.FirstOrDefaultAsync(r=>r.Id == id);
     }
 
     public async Task AddRoomAsync(Room room)
     {
         await _context.Rooms.AddAsync(room);
         await _context.SaveChangesAsync();
+    }
+
+    public async Task<Room?> GetRoomByKey(string key)
+    {
+        return await _context.Rooms.FirstOrDefaultAsync(r=>r.Key == key);
     }
 
     public async Task UpdateRoom(Room room)

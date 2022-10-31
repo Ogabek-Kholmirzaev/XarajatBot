@@ -16,6 +16,7 @@ builder.Services.Configure<XarajatBotOptions>(builder.Configuration.GetSection(n
 builder.Services.AddScoped<UserRepository>();
 builder.Services.AddScoped<TelegramBotService>();
 builder.Services.AddScoped<RoomRepository>();
+builder.Services.AddScoped<OutlayRepository>();
 
 builder.Services.AddControllers().AddNewtonsoftJson();
 
