@@ -5,7 +5,7 @@ using Microsoft.EntityFrameworkCore.Migrations;
 
 namespace Xarajat.Data.Migrations
 {
-    public partial class AddedTables : Migration
+    public partial class AddedAllTables : Migration
     {
         protected override void Up(MigrationBuilder migrationBuilder)
         {

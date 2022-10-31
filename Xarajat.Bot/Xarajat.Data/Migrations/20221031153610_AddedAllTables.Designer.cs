@@ -12,8 +12,8 @@ using Xarajat.Data.Context;
 namespace Xarajat.Data.Migrations
 {
     [DbContext(typeof(XarajatDbContext))]
-    [Migration("20221031004834_AddedTables")]
-    partial class AddedTables
+    [Migration("20221031153610_AddedAllTables")]
+    partial class AddedAllTables
     {
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
