@@ -13,9 +13,13 @@ public class RoomRepository
         _context = context;
     }
 
-    public async Task<Room?> GetRoomById(int id)
+    public Task<Room?> GetRoomById(int id)
     {
-        return await _context.Rooms.FirstOrDefaultAsync(r=>r.Id == id);
+        var rooms = _context.Rooms
+            .Include(room => room.Users)
+            .ToList();
+
+        return Task.FromResult(rooms.FirstOrDefault(r=>r.Id == id));
     }
 
     public async Task AddRoomAsync(Room room)
