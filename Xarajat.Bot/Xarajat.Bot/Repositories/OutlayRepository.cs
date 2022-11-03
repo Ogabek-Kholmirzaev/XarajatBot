@@ -1,4 +1,5 @@
-﻿using Xarajat.Data.Context;
+﻿using Microsoft.EntityFrameworkCore;
+using Xarajat.Data.Context;
 using Xarajat.Data.Entities;
 
 namespace Xarajat.Bot.Repositories
@@ -22,6 +23,9 @@ namespace Xarajat.Bot.Repositories
         {
             var sum = 0;
             var outlaysText = "";
+            var roomList = _context.Rooms
+                .Include(r => r.Users).ToList();
+            var room = roomList.First(r=>r.Id == roomId);
             var outlays = _context.Outlays.Where(x => x.RoomId == roomId).ToList();
 
             foreach (var outlay in outlays)
@@ -30,7 +34,12 @@ namespace Xarajat.Bot.Repositories
                 sum += outlay.Cost;
             }
 
-            outlaysText += "\nTotal cost: " + sum;
+            var usersCount = room.Users!.Count;
+            var outlayPerUser = (double)sum / (double)usersCount;
+
+            outlaysText += "\nTotal cost: " + sum + "\n";
+            outlaysText += "Users: " + usersCount + "\n";
+            outlaysText += $"Per User: {outlayPerUser}";
 
             return outlaysText;
         }

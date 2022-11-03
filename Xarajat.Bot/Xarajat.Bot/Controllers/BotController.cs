@@ -70,7 +70,7 @@ public class BotController : ControllerBase
 
                 _botService.SendMessage(user.ChatId, "Enter key to join room.");
             }
-            else if (message == "Add outlay")
+            else if (message == "Add outlay" && user.RoomId != null)
             {
                 user.Step = 4;
 
@@ -78,12 +78,8 @@ public class BotController : ControllerBase
 
                 _botService.SendMessage(user.ChatId, "Enter outlay details!\n\nBanana 20000");
             }
-            else if (message == "Calculate room outlays")
+            else if (message == "Calculate room outlays" && user.RoomId != null)
             {
-                user.Step = 5;
-
-                await _userRepository.UpdateUser(user);
-
                 _botService.SendMessage(user.ChatId, "Room outlays.");
 
                 user.Step = 100;
@@ -92,7 +88,7 @@ public class BotController : ControllerBase
 
                 _botService.SendMessage(user.ChatId, $"{await _outlayRepository.OutlaysByRoomId(user.RoomId!.Value)}", reply: _botService.GetKeyboard(ShowMenu(user)));
             }
-            else if (message == "My room")
+            else if (message == "My room" && user.RoomId != null)
             {
                 var room = await _roomRepository.GetRoomById(user.RoomId!.Value);
 
@@ -112,6 +108,10 @@ public class BotController : ControllerBase
                 await _userRepository.UpdateUser(user);
 
                 _botService.SendMessage(user.ChatId, msg, reply: _botService.GetKeyboard(ShowMenu(user)));
+            }
+            else
+            {
+                _botService.SendMessage(user.ChatId, "Menu.", reply: _botService.GetKeyboard(ShowMenu(user)));
             }
         }
         else if (user.Step == 1) // Create room
@@ -141,9 +141,11 @@ public class BotController : ControllerBase
             if (room == null)
                 msg += "Room key is false.";
             else
+            {
                 msg += $"Successfully added to {room.Name}.";
+                user.RoomId = room.Id;
+            }
 
-            user.RoomId = room!.Id;
             user.Step = 100;
 
             await _userRepository.UpdateUser(user);
@@ -211,7 +213,7 @@ public class BotController : ControllerBase
     {
         var chatId = update.Message!.From!.Id;
         var message = update.Message!.Text!;
-        var name = update.Message.From.Username ?? update.Message.From.FirstName + update.Message.From.LastName;
+        var name = update.Message.From.Username ?? update.Message.From.FirstName +" " + update.Message.From.LastName;
 
         return new Tuple<long, string, string>(chatId, message, name);
     }
